@@ -19,8 +19,7 @@ export class AnthropicProvider implements AiProvider {
   async generate(req: AiGenerationRequest): Promise<AiGenerationResult> {
     const message = await this.client.messages.create({
       model: this.model,
-      max_tokens: 4096,
-      temperature: 0.3,
+      max_tokens: 8192,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildUserPrompt(req) }],
     });
