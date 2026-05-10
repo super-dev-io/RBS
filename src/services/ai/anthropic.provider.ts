@@ -8,12 +8,12 @@ export class AnthropicProvider implements AiProvider {
   private client: Anthropic;
   private model: string;
 
-  constructor() {
+  constructor(model: string) {
     if (!env.ANTHROPIC_API_KEY) {
       throw new AppError("ANTHROPIC_API_KEY is not configured", 500, "AI_CONFIG_ERROR");
     }
     this.client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-    this.model = env.ANTHROPIC_MODEL;
+    this.model = model;
   }
 
   async generate(req: AiGenerationRequest): Promise<AiGenerationResult> {
@@ -38,7 +38,6 @@ export class AnthropicProvider implements AiProvider {
 
 function parseJson(text: string): ResumeContent {
   const cleaned = text.trim().replace(/^```json\n?/, "").replace(/```$/, "");
-  // try to find the first JSON object
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   const candidate = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;

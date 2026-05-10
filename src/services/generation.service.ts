@@ -3,11 +3,12 @@ import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 import { CreateGenerationInput } from "../validators/generation.validator";
 import { getGenerationQueue } from "../queues/generation.queue";
-import { getAiProvider } from "./ai";
+import { getAiProvider, resolveProviderAndModel } from "./ai";
 import { renderResumePdf } from "./pdf.service";
 import { getStorage } from "./storage";
 import { logger } from "../utils/logger";
 import { generationRepository } from "../repositories/generation.repository";
+import { TemplateConfig } from "./templating/types";
 
 export const generationService = {
   async createForBidder(bidderId: string, input: CreateGenerationInput) {
@@ -23,8 +24,15 @@ export const generationService = {
       );
     }
 
-    const template = await prisma.resumeTemplate.findUnique({ where: { id: templateId } });
+    const template = await prisma.resumeTemplate.findFirst({
+      where: { id: templateId, createdByAdminId: profile.createdByAdminId },
+    });
     if (!template) throw AppError.notFound("Template not found");
+
+    const resolved = resolveProviderAndModel({
+      provider: profile.aiProvider,
+      model: profile.aiModel,
+    });
 
     const generation = await prisma.$transaction(async (tx) => {
       const gen = await tx.resumeGeneration.create({
@@ -36,6 +44,8 @@ export const generationService = {
           roleTitle: input.roleTitle,
           jobDescription: input.jobDescription,
           status: GenerationStatus.PENDING,
+          aiProvider: resolved.provider,
+          aiModel: resolved.model,
         },
       });
       await tx.workLog.create({
@@ -134,7 +144,11 @@ export const generationService = {
     ]);
 
     try {
-      const ai = getAiProvider();
+      const ai = getAiProvider({
+        provider: generation.aiProvider ?? generation.profile.aiProvider,
+        model: generation.aiModel ?? generation.profile.aiModel,
+      });
+      const aiStart = Date.now();
       const result = await ai.generate({
         masterPrompt: generation.profile.masterPrompt,
         candidate: {
@@ -150,12 +164,14 @@ export const generationService = {
           jobDescription: generation.jobDescription,
         },
       });
+      logger.info({ generationId, ms: Date.now() - aiStart }, "AI generation done");
 
+      const pdfStart = Date.now();
       const pdf = await renderResumePdf({
-        htmlTemplate: generation.template.htmlTemplate,
-        cssStyles: generation.template.cssStyles,
+        config: generation.template.config as unknown as TemplateConfig,
         content: result.content,
       });
+      logger.info({ generationId, ms: Date.now() - pdfStart, bytes: pdf.length }, "PDF render done");
 
       const storage = getStorage();
       const key = `resumes/${generationId}.pdf`;

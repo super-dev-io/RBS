@@ -8,12 +8,12 @@ export class OpenAiProvider implements AiProvider {
   private client: OpenAI;
   private model: string;
 
-  constructor() {
+  constructor(model: string) {
     if (!env.OPENAI_API_KEY) {
       throw new AppError("OPENAI_API_KEY is not configured", 500, "AI_CONFIG_ERROR");
     }
     this.client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
-    this.model = env.OPENAI_MODEL;
+    this.model = model;
   }
 
   async generate(req: AiGenerationRequest): Promise<AiGenerationResult> {

@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { profileRepository } from "../repositories/profile.repository";
+import { BIDDER_PROFILE_SELECT, profileRepository } from "../repositories/profile.repository";
 import { AppError } from "../utils/AppError";
 import {
   CreateProfileInput,
@@ -24,6 +24,8 @@ export const profileService = {
         address: input.address,
         masterPrompt: input.masterPrompt,
         defaultPdfTemplateId: input.defaultPdfTemplateId,
+        aiProvider: input.aiProvider ?? null,
+        aiModel: input.aiModel ?? null,
         createdByAdminId: adminId,
       },
     });
@@ -56,7 +58,7 @@ export const profileService = {
   async getForBidder(bidderId: string, id: string) {
     const profile = await prisma.profile.findFirst({
       where: { id, assignments: { some: { bidderId } } },
-      include: { defaultPdfTemplate: true },
+      select: BIDDER_PROFILE_SELECT,
     });
     if (!profile) throw AppError.notFound("Profile not found");
     return profile;
@@ -87,6 +89,8 @@ export const profileService = {
         ...(input.defaultPdfTemplateId !== undefined
           ? { defaultPdfTemplateId: input.defaultPdfTemplateId }
           : {}),
+        ...(input.aiProvider !== undefined ? { aiProvider: input.aiProvider } : {}),
+        ...(input.aiModel !== undefined ? { aiModel: input.aiModel } : {}),
       },
     });
   },

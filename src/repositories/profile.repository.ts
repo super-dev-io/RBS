@@ -66,11 +66,22 @@ export const profileRepository = {
         orderBy: { createdAt: "desc" },
         skip: (params.page - 1) * params.pageSize,
         take: params.pageSize,
-        include: {
-          defaultPdfTemplate: { select: { id: true, name: true } },
-        },
+        select: BIDDER_PROFILE_SELECT,
       }),
       prisma.profile.count({ where }),
     ]);
   },
 };
+
+export const BIDDER_PROFILE_SELECT = {
+  id: true,
+  fullName: true,
+  email: true,
+  phoneNumber: true,
+  linkedinUrl: true,
+  address: true,
+  defaultPdfTemplateId: true,
+  defaultPdfTemplate: { select: { id: true, name: true } },
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.ProfileSelect;

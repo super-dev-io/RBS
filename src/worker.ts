@@ -1,4 +1,3 @@
-import "./types/express";
 import { createGenerationWorker } from "./workers/generation.worker";
 import { logger } from "./utils/logger";
 import { shutdownPdf } from "./services/pdf.service";

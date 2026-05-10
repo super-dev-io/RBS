@@ -1,13 +1,16 @@
 import { prisma } from "../config/prisma";
 import { templateRepository } from "../repositories/template.repository";
 import { AppError } from "../utils/AppError";
-import { renderResumePdf, renderTemplate } from "./pdf.service";
+import { renderResumePdf } from "./pdf.service";
+import { renderFullDocument } from "./templating/blockRenderer";
+import { TemplateConfig } from "./templating/types";
 import {
   CreateTemplateInput,
   UpdateTemplateInput,
 } from "../validators/template.validator";
+import { ResumeContent } from "./ai/types";
 
-const PREVIEW_CONTENT = {
+const PREVIEW_CONTENT: ResumeContent = {
   fullName: "Jane Doe",
   email: "jane.doe@example.com",
   phoneNumber: "+1 (555) 123-4567",
@@ -51,10 +54,20 @@ const PREVIEW_CONTENT = {
   certifications: [{ name: "AWS Solutions Architect", issuer: "AWS", year: "2023" }],
 };
 
+function configOf(tpl: { config: unknown }): TemplateConfig {
+  return tpl.config as TemplateConfig;
+}
+
 export const templateService = {
   async create(adminId: string, input: CreateTemplateInput) {
     return prisma.resumeTemplate.create({
-      data: { ...input, createdByAdminId: adminId },
+      data: {
+        name: input.name,
+        description: input.description,
+        config: input.config as object,
+        thumbnailUrl: input.thumbnailUrl,
+        createdByAdminId: adminId,
+      },
     });
   },
 
@@ -84,7 +97,12 @@ export const templateService = {
       where: { id, createdByAdminId: adminId },
     });
     if (!existing) throw AppError.notFound("Template not found");
-    return prisma.resumeTemplate.update({ where: { id }, data: input });
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) data.name = input.name;
+    if (input.description !== undefined) data.description = input.description;
+    if (input.config !== undefined) data.config = input.config as object;
+    if (input.thumbnailUrl !== undefined) data.thumbnailUrl = input.thumbnailUrl;
+    return prisma.resumeTemplate.update({ where: { id }, data });
   },
 
   async delete(adminId: string, id: string) {
@@ -97,21 +115,11 @@ export const templateService = {
 
   async previewHtml(adminId: string, id: string) {
     const tpl = await this.getById(adminId, id);
-    const body = renderTemplate(tpl.htmlTemplate, PREVIEW_CONTENT);
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>${tpl.cssStyles}</style></head><body>${stripBody(body)}</body></html>`;
+    return renderFullDocument(configOf(tpl), PREVIEW_CONTENT);
   },
 
   async previewPdf(adminId: string, id: string) {
     const tpl = await this.getById(adminId, id);
-    return renderResumePdf({
-      htmlTemplate: tpl.htmlTemplate,
-      cssStyles: tpl.cssStyles,
-      content: PREVIEW_CONTENT as any,
-    });
+    return renderResumePdf({ config: configOf(tpl), content: PREVIEW_CONTENT });
   },
 };
-
-function stripBody(html: string) {
-  const m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  return m ? m[1] : html.replace(/<!DOCTYPE[^>]*>/i, "");
-}
