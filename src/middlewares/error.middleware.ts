@@ -1,10 +1,10 @@
-import { ErrorRequestHandler } from "express";
+import { ErrorRequestHandler, RequestHandler } from "express";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { AppError } from "../utils/AppError";
 import { logger } from "../utils/logger";
 
-export const notFoundHandler: ErrorRequestHandler = (_req, res) => {
+export const notFoundHandler: RequestHandler = (_req, res) => {
   res.status(404).json({ error: { code: "NOT_FOUND", message: "Route not found" } });
 };
 
