@@ -1,7 +1,7 @@
 import { prisma } from "../config/prisma";
 import { templateRepository } from "../repositories/template.repository";
 import { AppError } from "../utils/AppError";
-import { renderResumePdf } from "./pdf.service";
+import { renderResumePdf, renderTemplateThumbnailPng } from "./pdf.service";
 import { renderFullDocument } from "./templating/blockRenderer";
 import { TemplateConfig } from "./templating/types";
 import {
@@ -9,6 +9,10 @@ import {
   UpdateTemplateInput,
 } from "../validators/template.validator";
 import { ResumeContent } from "./ai/types";
+import { getStorage } from "./storage";
+import { logger } from "../utils/logger";
+
+const thumbnailKey = (id: string) => `templates/${id}.png`;
 
 const PREVIEW_CONTENT: ResumeContent = {
   fullName: "Jane Doe",
@@ -102,7 +106,9 @@ export const templateService = {
     if (input.description !== undefined) data.description = input.description;
     if (input.config !== undefined) data.config = input.config as object;
     if (input.thumbnailUrl !== undefined) data.thumbnailUrl = input.thumbnailUrl;
-    return prisma.resumeTemplate.update({ where: { id }, data });
+    const updated = await prisma.resumeTemplate.update({ where: { id }, data });
+    await getStorage().delete(thumbnailKey(id)).catch(() => {});
+    return updated;
   },
 
   async delete(adminId: string, id: string) {
@@ -111,6 +117,22 @@ export const templateService = {
     });
     if (!existing) throw AppError.notFound("Template not found");
     await prisma.resumeTemplate.delete({ where: { id } });
+    await getStorage().delete(thumbnailKey(id)).catch(() => {});
+  },
+
+  async thumbnail(adminId: string, id: string): Promise<Buffer> {
+    const tpl = await this.getById(adminId, id);
+    const storage = getStorage();
+    const cached = await storage.read(thumbnailKey(id)).catch(() => null);
+    if (cached) return cached;
+    const png = await renderTemplateThumbnailPng({
+      config: configOf(tpl),
+      content: PREVIEW_CONTENT,
+    });
+    await storage
+      .save({ key: thumbnailKey(id), body: png, contentType: "image/png" })
+      .catch((err) => logger.warn({ err, id }, "Failed to cache template thumbnail"));
+    return png;
   },
 
   async previewHtml(adminId: string, id: string) {

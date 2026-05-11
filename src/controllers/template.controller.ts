@@ -56,4 +56,13 @@ export const templateController = {
     const pdf = await templateService.previewPdf(req.user.id, req.params.id);
     res.type("application/pdf").send(pdf);
   },
+
+  async thumbnail(req: Request, res: Response) {
+    if (!req.user) throw AppError.unauthorized();
+    const png = await templateService.thumbnail(req.user.id, req.params.id);
+    res
+      .type("image/png")
+      .setHeader("Cache-Control", "private, max-age=300")
+      .send(png);
+  },
 };

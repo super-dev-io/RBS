@@ -9,7 +9,9 @@ export function createGenerationWorker() {
     GENERATION_QUEUE,
     async (job) => {
       logger.info({ jobId: job.id, generationId: job.data.generationId }, "Processing generation");
-      await generationService.processGeneration(job.data.generationId);
+      await generationService.processGeneration(job.data.generationId, {
+        generateCoverLetter: job.data.generateCoverLetter ?? true,
+      });
     },
     {
       connection: getRedis(),

@@ -18,6 +18,28 @@ export const workLogController = {
     res.json(paginate(data, total, { page: q.page, pageSize: q.pageSize }));
   },
 
+  async listBiddersAdmin(req: Request, res: Response) {
+    if (!req.user) throw AppError.unauthorized();
+    const data = await workLogService.listBiddersForAdmin(req.user.id);
+    res.json({ data });
+  },
+
+  async listFoldersAdmin(req: Request, res: Response) {
+    if (!req.user) throw AppError.unauthorized();
+    const data = await workLogService.listFoldersForAdmin(req.user.id, req.params.bidderId);
+    res.json({ data });
+  },
+
+  async listFolderContentsAdmin(req: Request, res: Response) {
+    if (!req.user) throw AppError.unauthorized();
+    const data = await workLogService.listFolderContentsForAdmin(
+      req.user.id,
+      req.params.bidderId,
+      req.params.date
+    );
+    res.json({ data });
+  },
+
   async listMine(req: Request, res: Response) {
     if (!req.user) throw AppError.unauthorized();
     const q = req.query as any;

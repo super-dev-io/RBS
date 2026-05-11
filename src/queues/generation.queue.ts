@@ -5,6 +5,7 @@ export const GENERATION_QUEUE = "resume-generation";
 
 export interface GenerationJobData {
   generationId: string;
+  generateCoverLetter?: boolean;
 }
 
 let queue: Queue<GenerationJobData> | null = null;

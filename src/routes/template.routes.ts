@@ -20,5 +20,6 @@ router.patch("/:id", validate(updateTemplateSchema), asyncHandler(templateContro
 router.delete("/:id", asyncHandler(templateController.delete));
 router.get("/:id/preview.html", asyncHandler(templateController.previewHtml));
 router.get("/:id/preview.pdf", asyncHandler(templateController.previewPdf));
+router.get("/:id/thumbnail.png", asyncHandler(templateController.thumbnail));
 
 export default router;

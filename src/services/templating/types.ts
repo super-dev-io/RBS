@@ -7,10 +7,27 @@ export type BlockKind =
   | "education"
   | "certifications";
 
+export type BlockAlignment = "left" | "center" | "right" | "justify";
+
+export interface BlockHeadingStyle {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  uppercase?: boolean;
+}
+
+export interface BlockStyle {
+  fontSize?: number;
+  textColor?: string;
+  alignment?: BlockAlignment;
+  headingStyle?: BlockHeadingStyle;
+}
+
 export interface BlockConfig {
   kind: BlockKind;
   enabled: boolean;
   order: number;
+  style?: BlockStyle;
 }
 
 export type FontFamily = "Inter" | "Lora" | "Source Sans" | "Playfair";
@@ -23,6 +40,7 @@ export interface ThemeConfig {
   baseFontSize: number;
   density: Density;
   layout: Layout;
+  timeline?: boolean;
 }
 
 export interface TemplateConfig {

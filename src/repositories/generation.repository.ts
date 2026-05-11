@@ -45,28 +45,4 @@ export const generationRepository = {
     ]);
   },
 
-  listForAdmin(
-    adminId: string,
-    params: { page: number; pageSize: number; status?: GenerationStatus; profileId?: string }
-  ) {
-    const where: Prisma.ResumeGenerationWhereInput = {
-      profile: { createdByAdminId: adminId },
-      ...(params.status ? { status: params.status } : {}),
-      ...(params.profileId ? { profileId: params.profileId } : {}),
-    };
-    return prisma.$transaction([
-      prisma.resumeGeneration.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (params.page - 1) * params.pageSize,
-        take: params.pageSize,
-        include: {
-          profile: { select: { id: true, fullName: true } },
-          template: { select: { id: true, name: true } },
-          bidder: { select: { id: true, name: true, email: true } },
-        },
-      }),
-      prisma.resumeGeneration.count({ where }),
-    ]);
-  },
 };

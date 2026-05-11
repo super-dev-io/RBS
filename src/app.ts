@@ -10,9 +10,10 @@ import authRoutes from "./routes/auth.routes";
 import bidderRoutes from "./routes/bidder.routes";
 import templateRoutes from "./routes/template.routes";
 import { adminProfileRouter, bidderProfileRouter } from "./routes/profile.routes";
-import { adminGenerationRouter, bidderGenerationRouter } from "./routes/generation.routes";
+import { bidderGenerationRouter } from "./routes/generation.routes";
 import { adminWorkLogRouter, bidderWorkLogRouter } from "./routes/workLog.routes";
-import filesRoutes from "./routes/files.routes";
+import { bidderFolderRouter } from "./routes/bidderFolder.routes";
+import analyticsRoutes from "./routes/analytics.routes";
 
 export function createApp(): Application {
   const app = express();
@@ -38,16 +39,14 @@ export function createApp(): Application {
   app.use("/api/admin/bidders", bidderRoutes);
   app.use("/api/admin/profiles", adminProfileRouter);
   app.use("/api/admin/templates", templateRoutes);
-  app.use("/api/admin/generations", adminGenerationRouter);
   app.use("/api/admin/work-logs", adminWorkLogRouter);
+  app.use("/api/admin/analytics", analyticsRoutes);
 
   // Bidder
   app.use("/api/bidder/profiles", bidderProfileRouter);
   app.use("/api/bidder/generations", bidderGenerationRouter);
   app.use("/api/bidder/work-logs", bidderWorkLogRouter);
-
-  // Authenticated file proxy
-  app.use("/files", filesRoutes);
+  app.use("/api/bidder/folders", bidderFolderRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

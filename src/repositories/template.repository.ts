@@ -27,6 +27,9 @@ export const templateRepository = {
         orderBy: { createdAt: "desc" },
         skip: (params.page - 1) * params.pageSize,
         take: params.pageSize,
+        include: {
+          _count: { select: { defaultForProfiles: true, generations: true } },
+        },
       }),
       prisma.resumeTemplate.count({ where }),
     ]);

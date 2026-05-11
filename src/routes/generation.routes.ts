@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticate, requireAdmin, requireBidder } from "../middlewares/auth.middleware";
+import { authenticate, requireBidder } from "../middlewares/auth.middleware";
 import { validate } from "../middlewares/validate.middleware";
 import {
   createGenerationSchema,
@@ -25,15 +25,9 @@ bidderRouter.get(
 );
 bidderRouter.get("/:id", asyncHandler(generationController.getMine));
 bidderRouter.get("/:id/download", asyncHandler(generationController.downloadMine));
-
-const adminRouter = Router();
-adminRouter.use(authenticate, requireAdmin);
-adminRouter.get(
-  "/",
-  validate(listGenerationQuery, "query"),
-  asyncHandler(generationController.listAdmin)
+bidderRouter.get(
+  "/:id/cover-letter/download",
+  asyncHandler(generationController.downloadCoverLetterMine)
 );
-adminRouter.get("/:id", asyncHandler(generationController.getAdmin));
-adminRouter.get("/:id/download", asyncHandler(generationController.downloadAdmin));
 
-export { bidderRouter as bidderGenerationRouter, adminRouter as adminGenerationRouter };
+export { bidderRouter as bidderGenerationRouter };

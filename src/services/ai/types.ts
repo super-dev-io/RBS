@@ -55,6 +55,21 @@ export interface AiGenerationResult {
   model: string;
 }
 
+export interface CoverLetterContent {
+  text: string;
+}
+
+export interface CoverLetterRequest extends AiGenerationRequest {
+  resume: ResumeContent;
+}
+
+export interface CoverLetterResult {
+  content: CoverLetterContent;
+  provider: string;
+  model: string;
+}
+
 export interface AiProvider {
   generate(req: AiGenerationRequest): Promise<AiGenerationResult>;
+  generateCoverLetter(req: CoverLetterRequest): Promise<CoverLetterResult>;
 }

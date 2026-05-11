@@ -1,6 +1,10 @@
+import { AppError } from "../utils/AppError";
 import { workLogRepository } from "../repositories/workLog.repository";
 
 function dayBoundary(date: string): { from: Date; to: Date } {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw AppError.badRequest("Date must be in YYYY-MM-DD format");
+  }
   const from = new Date(`${date}T00:00:00.000Z`);
   const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
   return { from, to };
@@ -37,6 +41,19 @@ export const workLogService = {
       to,
     });
     return { data, total };
+  },
+
+  listBiddersForAdmin(adminId: string) {
+    return workLogRepository.listBiddersForAdmin(adminId);
+  },
+
+  listFoldersForAdmin(adminId: string, bidderId: string) {
+    return workLogRepository.listFoldersForAdmin(adminId, bidderId);
+  },
+
+  listFolderContentsForAdmin(adminId: string, bidderId: string, date: string) {
+    const { from, to } = dayBoundary(date);
+    return workLogRepository.listFolderContentsForAdmin(adminId, bidderId, from, to);
   },
 
   async listForBidder(

@@ -44,6 +44,17 @@ export const userRepository = {
           isActive: true,
           createdAt: true,
           updatedAt: true,
+          _count: {
+            select: {
+              assignments: true,
+              generations: true,
+            },
+          },
+          workLogs: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: { createdAt: true },
+          },
         },
       }),
       prisma.user.count({ where }),

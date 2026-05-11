@@ -3,10 +3,32 @@ import { ALL_BLOCK_KINDS } from "../services/templating/types";
 
 const blockKindSchema = z.enum(ALL_BLOCK_KINDS as [string, ...string[]]);
 
+const blockHeadingStyleSchema = z
+  .object({
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    uppercase: z.boolean().optional(),
+  })
+  .strict();
+
+const blockStyleSchema = z
+  .object({
+    fontSize: z.number().min(8).max(24).optional(),
+    textColor: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color like #2563eb")
+      .optional(),
+    alignment: z.enum(["left", "center", "right", "justify"]).optional(),
+    headingStyle: blockHeadingStyleSchema.optional(),
+  })
+  .strict();
+
 const blockConfigSchema = z.object({
   kind: blockKindSchema,
   enabled: z.boolean(),
   order: z.number().int().min(0).max(100),
+  style: blockStyleSchema.optional(),
 });
 
 const themeConfigSchema = z.object({
@@ -15,6 +37,7 @@ const themeConfigSchema = z.object({
   baseFontSize: z.number().int().min(9).max(13),
   density: z.enum(["compact", "normal", "relaxed"]),
   layout: z.enum(["one-col", "two-col"]),
+  timeline: z.boolean().optional(),
 });
 
 export const templateConfigSchema = z.object({

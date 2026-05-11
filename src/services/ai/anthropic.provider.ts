@@ -1,12 +1,27 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "../../config/env";
 import { AppError } from "../../utils/AppError";
-import { buildUserPrompt, SYSTEM_PROMPT } from "./prompt";
-import { AiGenerationRequest, AiGenerationResult, AiProvider, ResumeContent } from "./types";
+import { ANTHROPIC_MODEL_API_ID } from "./models";
+import {
+  buildCoverLetterPrompt,
+  buildUserPrompt,
+  COVER_LETTER_SYSTEM_PROMPT,
+  SYSTEM_PROMPT,
+} from "./prompt";
+import {
+  AiGenerationRequest,
+  AiGenerationResult,
+  AiProvider,
+  CoverLetterContent,
+  CoverLetterRequest,
+  CoverLetterResult,
+  ResumeContent,
+} from "./types";
 
 export class AnthropicProvider implements AiProvider {
   private client: Anthropic;
   private model: string;
+  private apiModel: string;
 
   constructor(model: string) {
     if (!env.ANTHROPIC_API_KEY) {
@@ -14,15 +29,52 @@ export class AnthropicProvider implements AiProvider {
     }
     this.client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
     this.model = model;
+    this.apiModel = (ANTHROPIC_MODEL_API_ID as Record<string, string>)[model] ?? model;
   }
 
   async generate(req: AiGenerationRequest): Promise<AiGenerationResult> {
-    const message = await this.client.messages.create({
-      model: this.model,
-      max_tokens: 8192,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildUserPrompt(req) }],
-    });
+    const text = await this.call(SYSTEM_PROMPT, buildUserPrompt(req), 8192, 0.3);
+    const parsed = parseJson<ResumeContent>(text);
+    return { content: parsed, provider: "anthropic", model: this.model };
+  }
+
+  async generateCoverLetter(req: CoverLetterRequest): Promise<CoverLetterResult> {
+    const text = await this.call(
+      COVER_LETTER_SYSTEM_PROMPT,
+      buildCoverLetterPrompt(req),
+      2048,
+      0.5
+    );
+    const parsed = parseJson<CoverLetterContent>(text);
+    if (!parsed.text || typeof parsed.text !== "string") {
+      throw new AppError("Cover letter response missing 'text' field", 502, "AI_PARSE_ERROR");
+    }
+    return { content: parsed, provider: "anthropic", model: this.model };
+  }
+
+  private async call(
+    system: string,
+    user: string,
+    maxTokens: number,
+    temperature: number
+  ): Promise<string> {
+    let message;
+    try {
+      message = await this.client.messages.create({
+        model: this.apiModel,
+        max_tokens: maxTokens,
+        temperature,
+        system,
+        messages: [{ role: "user", content: user }],
+      });
+    } catch (err: unknown) {
+      const detail = anthropicErrorDetail(err);
+      throw new AppError(
+        `Anthropic API call failed (model="${this.model}"): ${detail}`,
+        502,
+        "AI_REQUEST_FAILED"
+      );
+    }
 
     const text = message.content
       .map((c) => (c.type === "text" ? c.text : ""))
@@ -30,19 +82,48 @@ export class AnthropicProvider implements AiProvider {
       .trim();
 
     if (!text) throw new AppError("AI returned no content", 502, "AI_EMPTY");
-    const parsed = parseJson(text);
-    return { content: parsed, provider: "anthropic", model: this.model };
+    return text;
   }
 }
 
-function parseJson(text: string): ResumeContent {
-  const cleaned = text.trim().replace(/^```json\n?/, "").replace(/```$/, "");
+function anthropicErrorDetail(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as {
+      status?: number;
+      message?: string;
+      error?: { message?: string };
+      cause?: { code?: string; message?: string; errors?: Array<{ code?: string; address?: string }> };
+    };
+    const inner = e.error?.message ?? e.message;
+    const cause = e.cause;
+    const causeDetail = cause
+      ? cause.errors?.length
+        ? cause.errors.map((c) => `${c.code}:${c.address}`).join(" | ")
+        : cause.code ?? cause.message
+      : undefined;
+    const parts = [
+      e.status ? `[${e.status}]` : undefined,
+      inner,
+      causeDetail ? `(cause: ${causeDetail})` : undefined,
+    ].filter(Boolean);
+    if (parts.length) return parts.join(" ");
+  }
+  return String(err);
+}
+
+function parseJson<T>(text: string): T {
+  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
   const start = cleaned.indexOf("{");
   const end = cleaned.lastIndexOf("}");
   const candidate = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
   try {
-    return JSON.parse(candidate) as ResumeContent;
+    return JSON.parse(candidate) as T;
   } catch {
-    throw new AppError("AI response was not valid JSON", 502, "AI_PARSE_ERROR");
+    const preview = text.slice(0, 200).replace(/\s+/g, " ");
+    throw new AppError(
+      `AI response was not valid JSON (preview: "${preview}")`,
+      502,
+      "AI_PARSE_ERROR"
+    );
   }
 }

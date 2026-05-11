@@ -12,6 +12,15 @@ adminRouter.get(
   validate(listWorkLogsQuery, "query"),
   asyncHandler(workLogController.listAdmin)
 );
+adminRouter.get("/bidders", asyncHandler(workLogController.listBiddersAdmin));
+adminRouter.get(
+  "/bidders/:bidderId/folders",
+  asyncHandler(workLogController.listFoldersAdmin)
+);
+adminRouter.get(
+  "/bidders/:bidderId/folders/:date",
+  asyncHandler(workLogController.listFolderContentsAdmin)
+);
 
 const bidderRouter = Router();
 bidderRouter.use(authenticate, requireBidder);

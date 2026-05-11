@@ -16,13 +16,16 @@ const envSchema = z.object({
 
   AI_PROVIDER: z.enum(["openai", "anthropic"]).default("openai"),
   OPENAI_API_KEY: z.string().optional().default(""),
-  OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+  OPENAI_MODEL: z.string().default("gpt-5-mini"),
   ANTHROPIC_API_KEY: z.string().optional().default(""),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-4-6"),
 
   STORAGE_DRIVER: z.enum(["local", "s3", "r2"]).default("local"),
   STORAGE_LOCAL_DIR: z.string().default("./storage"),
   PUBLIC_BASE_URL: z.string().default("http://localhost:4000"),
+
+  WEASYPRINT_BIN: z.string().default("weasyprint"),
+  WEASYPRINT_TIMEOUT_MS: z.coerce.number().default(20_000),
 });
 
 const parsed = envSchema.safeParse(process.env);

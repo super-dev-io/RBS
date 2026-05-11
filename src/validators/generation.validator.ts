@@ -3,9 +3,11 @@ import { z } from "zod";
 export const createGenerationSchema = z.object({
   profileId: z.string().uuid(),
   templateId: z.string().uuid().optional(),
+  label: z.string().trim().min(1, "Workspace is required").max(64),
   companyName: z.string().min(1).max(200),
   roleTitle: z.string().min(1).max(200),
   jobDescription: z.string().min(20),
+  generateCoverLetter: z.boolean().optional().default(true),
 });
 export type CreateGenerationInput = z.infer<typeof createGenerationSchema>;
 

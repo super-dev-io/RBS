@@ -24,7 +24,18 @@ export const bidderService = {
   },
 
   async list(adminId: string, params: { page: number; pageSize: number; search?: string }) {
-    const [data, total] = await userRepository.listBidders(adminId, params);
+    const [rows, total] = await userRepository.listBidders(adminId, params);
+    const data = rows.map((r: any) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name,
+      role: r.role,
+      isActive: r.isActive,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      _count: r._count,
+      lastActiveAt: r.workLogs?.[0]?.createdAt ?? null,
+    }));
     return { data, total };
   },
 

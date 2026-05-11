@@ -4,14 +4,21 @@ import { AppError } from "../utils/AppError";
 import { CreateGenerationInput } from "../validators/generation.validator";
 import { getGenerationQueue } from "../queues/generation.queue";
 import { getAiProvider, resolveProviderAndModel } from "./ai";
-import { renderResumePdf } from "./pdf.service";
-import { getStorage } from "./storage";
 import { logger } from "../utils/logger";
 import { generationRepository } from "../repositories/generation.repository";
-import { TemplateConfig } from "./templating/types";
 
 export const generationService = {
   async createForBidder(bidderId: string, input: CreateGenerationInput) {
+    const folder = await prisma.bidderFolder.findUnique({
+      where: { bidderId_label: { bidderId, label: input.label } },
+      select: { id: true },
+    });
+    if (!folder) {
+      throw AppError.badRequest(
+        "Create a date workspace first before generating resumes"
+      );
+    }
+
     const profile = await prisma.profile.findFirst({
       where: { id: input.profileId, assignments: { some: { bidderId } } },
     });
@@ -63,7 +70,10 @@ export const generationService = {
 
     const job = await getGenerationQueue().add(
       "generate",
-      { generationId: generation.id },
+      {
+        generationId: generation.id,
+        generateCoverLetter: input.generateCoverLetter ?? true,
+      },
       { jobId: generation.id }
     );
 
@@ -80,20 +90,7 @@ export const generationService = {
       where: { id, bidderId },
       include: {
         profile: { select: { id: true, fullName: true, email: true } },
-        template: { select: { id: true, name: true } },
-      },
-    });
-    if (!gen) throw AppError.notFound("Generation not found");
-    return gen;
-  },
-
-  async getForAdmin(adminId: string, id: string) {
-    const gen = await prisma.resumeGeneration.findFirst({
-      where: { id, profile: { createdByAdminId: adminId } },
-      include: {
-        profile: { select: { id: true, fullName: true, email: true } },
-        template: { select: { id: true, name: true } },
-        bidder: { select: { id: true, name: true, email: true } },
+        template: { select: { id: true, name: true, config: true } },
       },
     });
     if (!gen) throw AppError.notFound("Generation not found");
@@ -108,18 +105,15 @@ export const generationService = {
     return { data, total };
   },
 
-  async listForAdmin(
-    adminId: string,
-    params: { page: number; pageSize: number; status?: GenerationStatus; profileId?: string }
-  ) {
-    const [data, total] = await generationRepository.listForAdmin(adminId, params);
-    return { data, total };
-  },
-
   /**
-   * Worker entrypoint — runs the AI + PDF + storage pipeline for a single generation.
+   * Worker entrypoint — runs the AI pipeline for a single generation. PDFs are
+   * no longer rendered or stored here; they are produced on demand by the
+   * download endpoints from `generatedContent` / `coverLetterContent`.
    */
-  async processGeneration(generationId: string): Promise<void> {
+  async processGeneration(
+    generationId: string,
+    opts: { generateCoverLetter?: boolean } = {}
+  ): Promise<void> {
     const generation = await prisma.resumeGeneration.findUnique({
       where: { id: generationId },
       include: { profile: true, template: true, bidder: true },
@@ -166,20 +160,38 @@ export const generationService = {
       });
       logger.info({ generationId, ms: Date.now() - aiStart }, "AI generation done");
 
-      const pdfStart = Date.now();
-      const pdf = await renderResumePdf({
-        config: generation.template.config as unknown as TemplateConfig,
-        content: result.content,
-      });
-      logger.info({ generationId, ms: Date.now() - pdfStart, bytes: pdf.length }, "PDF render done");
-
-      const storage = getStorage();
-      const key = `resumes/${generationId}.pdf`;
-      const stored = await storage.save({
-        key,
-        body: pdf,
-        contentType: "application/pdf",
-      });
+      let coverLetterText: string | null = null;
+      if (opts.generateCoverLetter !== false) {
+        try {
+          const clStart = Date.now();
+          const cl = await ai.generateCoverLetter({
+            masterPrompt: generation.profile.masterPrompt,
+            candidate: {
+              fullName: generation.profile.fullName,
+              email: generation.profile.email,
+              phoneNumber: generation.profile.phoneNumber ?? undefined,
+              linkedinUrl: generation.profile.linkedinUrl ?? undefined,
+              address: generation.profile.address ?? undefined,
+            },
+            job: {
+              companyName: generation.companyName,
+              roleTitle: generation.roleTitle,
+              jobDescription: generation.jobDescription,
+            },
+            resume: result.content,
+          });
+          coverLetterText = cl.content.text;
+          logger.info(
+            { generationId, ms: Date.now() - clStart },
+            "Cover letter generated"
+          );
+        } catch (clErr) {
+          logger.error(
+            { err: clErr, generationId },
+            "Cover letter generation failed (resume still succeeds)"
+          );
+        }
+      }
 
       const completedAt = new Date();
       await prisma.$transaction([
@@ -190,8 +202,7 @@ export const generationService = {
             generatedContent: result.content as any,
             aiProvider: result.provider,
             aiModel: result.model,
-            pdfPath: stored.key,
-            pdfUrl: stored.url,
+            coverLetterContent: coverLetterText,
             completedAt,
           },
         }),

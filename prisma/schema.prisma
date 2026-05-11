@@ -41,6 +41,7 @@ model User {
   assignments     ProfileAssignment[] @relation("BidderAssignments")
   generations     ResumeGeneration[]  @relation("BidderGenerations")
   workLogs        WorkLog[]           @relation("BidderWorkLogs")
+  bidderFolders   BidderFolder[]      @relation("BidderFolders")
   refreshTokens   RefreshToken[]
 
   @@index([role])
@@ -135,8 +136,7 @@ model ResumeGeneration {
   aiProvider      String?          @map("ai_provider")
   aiModel         String?          @map("ai_model")
   generatedContent Json?           @map("generated_content")
-  pdfPath         String?          @map("pdf_path")
-  pdfUrl          String?          @map("pdf_url")
+  coverLetterContent String?       @map("cover_letter_content") @db.Text
   errorMessage    String?          @map("error_message") @db.Text
   jobId           String?          @map("job_id")
   createdAt       DateTime         @default(now()) @map("created_at")
@@ -169,4 +169,16 @@ model WorkLog {
   @@index([bidderId, createdAt])
   @@index([profileId])
   @@map("work_logs")
+}
+
+model BidderFolder {
+  id        String   @id @default(uuid()) @db.Uuid
+  bidderId  String   @map("bidder_id") @db.Uuid
+  bidder    User     @relation("BidderFolders", fields: [bidderId], references: [id], onDelete: Cascade)
+  label     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([bidderId, label])
+  @@index([bidderId, label])
+  @@map("bidder_folders")
 }
